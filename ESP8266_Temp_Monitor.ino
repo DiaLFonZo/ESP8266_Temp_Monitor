@@ -105,8 +105,14 @@ void loop() {
   // Grab the current state of the sensor
   int humidity_data = (int)dht.readHumidity();
   int temperature_data = (int)dht.readTemperature();
-  int heatindex_data = dht.computeHeatIndex(temperature_data, humidity_data);
-  battValue = 512; //analogRead(battPin);
+  int heatindex_data = dht.computeHeatIndex(temperature_data, humidity_data);  
+ // battValue = analogRead(battPin);
+
+ // Auto battery change for testing the graphic bar
+ battValue = (battValue + 200); 
+ if (battValue > 1024)
+    battValue = 0;
+    
   int battlevel_data = map(battValue, 0, 1023, 0, 100);  // map the value in point of ADC for now
   
   // Publish data
@@ -137,12 +143,19 @@ void loop() {
   display.setCursor(0,0);
   display.print(temperature_data);
 
-  display.drawLine(0, 40, 128, 40, WHITE);
-  display.drawLine(0, 42, 128, 42, WHITE);
+  display.drawLine(0, 38, 128, 38, WHITE);
+  display.drawLine(0, 43, 128, 43, WHITE);
+
+  // Take the battery value and scale it into a graph bar for the OLED. Draw in between of the two lines
+  int battGraph = map(battValue, 0, 1023, 0, 128);  // map the value in point of ADC for now
+  display.drawLine(0, 39, battGraph, 39, WHITE);
+  display.drawLine(0, 40, battGraph, 40, WHITE);
+  display.drawLine(0, 41, battGraph, 41, WHITE);
+  display.drawLine(0, 42, battGraph, 42, WHITE);
   
   display.setTextSize(1);
   display.setCursor(70,0);
-  display.print("Interieur");
+  display.print("Cuisine");
 
   display.setTextSize(2);
   display.setCursor(65,20);
