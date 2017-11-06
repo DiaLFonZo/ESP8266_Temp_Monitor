@@ -13,8 +13,7 @@ int battValue = 0;  // variable to store the value coming from the sensor
 #define DHTTYPE DHT11 
 
 // WiFi parameters
-#define WLAN_SSID       "DiaLFonZo_2.4"
-#define WLAN_PASS       "macanantel"
+#include "Credentials.h"
 
 // Adafruit IO
 #define AIO_SERVER      "io.adafruit.com"
@@ -36,146 +35,136 @@ Adafruit_SSD1306 display(OLED_RESET);
 #endif
 
 // DHT sensor
-DHT dht(DHTPIN, DHTTYPE, 15);
+    DHT dht(DHTPIN, DHTTYPE, 15);
 
 // Functions
-void connect();
+    void connect();
 
 // Create an ESP8266 WiFiClient class to connect to the MQTT server.
-WiFiClient client;
+    WiFiClient client;
  
 // Setup the MQTT client class by passing in the WiFi client and MQTT server and login details.
-Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
-/****************************** Feeds ***************************************/
+    Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
 
-// Setup feeds for temperature & humidity & relative temperature
-Adafruit_MQTT_Publish temperature = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/temperature");
-Adafruit_MQTT_Publish humidity = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/humidity");
-Adafruit_MQTT_Publish heatindex = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/heatindex");
-Adafruit_MQTT_Publish battlevel = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/battlevel");
-/*************************** Sketch Code ************************************/
+/****************************** Feeds ***************************************/
+    Adafruit_MQTT_Publish temperature = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/temperature");
+    Adafruit_MQTT_Publish humidity = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/humidity");
+    Adafruit_MQTT_Publish heatindex = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/heatindex");
+    Adafruit_MQTT_Publish battlevel = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/battlevel");
 
 void setup() {
 
-  // Init sensor
-  dht.begin();
+// Initiate the LCD and disply the Splash Screen
+    display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize with the I2C addr 0x3C (for the 128x32)
+    //  display.ssd1306_command(SSD1306_SETCONTRAST);
+    //  display.ssd1306_command(255); // Where c is a value from 0 to 255 (sets contrast e.g. brightness)
+    display.display();
 
-  Serial.begin(115200);
-  Serial.println(F("Adafruit IO Example"));
+// Initiate sensor
+    dht.begin();
 
-  // Connect to WiFi access point.
-  Serial.println(); Serial.println();
-  delay(10);
-  Serial.print(F("Connecting to "));
-  Serial.println(WLAN_SSID);
+// Initiate serial port
+    Serial.begin(115200);
 
-  WiFi.begin(WLAN_SSID, WLAN_PASS);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(F("."));
-  }
-  Serial.println();
-
-  Serial.println(F("WiFi connected"));
-  Serial.println(F("IP address: "));
-  Serial.println(WiFi.localIP());
-
-  // connect to adafruit io
-  connect();
-
-  // by default, we'll generate the high voltage from the 3.3v line internally! (neat!)
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize with the I2C addr 0x3C (for the 128x32)
-      //  display.ssd1306_command(SSD1306_SETCONTRAST);
-      //  display.ssd1306_command(255); // Where c is a value from 0 to 255 (sets contrast e.g. brightness)
-  display.display();
-  delay(2000);
-  display.clearDisplay();
+// Connect to WiFi access point.
+    Serial.println(); Serial.println();
+    delay(10);
+    Serial.print(F("Connecting to "));
+    Serial.println(WLAN_SSID);
   
+    WiFi.begin(WLAN_SSID, WLAN_PASS);
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print(F("."));
+    }
+    Serial.println();
+  
+    Serial.println(F("WiFi connected"));
+    Serial.println(F("IP address: "));
+    Serial.println(WiFi.localIP());
+
+// connect to adafruit io
+    connect();
+    display.clearDisplay();  
 }
 
 void loop() {
 
-  // ping adafruit io a few times to make sure we remain connected
-  if(! mqtt.ping(3)) {
-    // reconnect to adafruit io
-    if(! mqtt.connected())
-      connect();
-  }
+// ping adafruit io a few times to make sure we remain connected
+    if(! mqtt.ping(3)) {
+      // reconnect to adafruit io
+      if(! mqtt.connected())
+        connect();
+    }
 
-  // Grab the current state of the sensor
-  int humidity_data = (int)dht.readHumidity();
-  int temperature_data = (int)dht.readTemperature();
-  int heatindex_data = dht.computeHeatIndex(temperature_data, humidity_data);  
- // battValue = analogRead(battPin);
+// Grab the current state of the sensor
+    int humidity_data = (int)dht.readHumidity();
+    int temperature_data = (int)dht.readTemperature();
+    int heatindex_data = dht.computeHeatIndex(temperature_data, humidity_data);  
+    battValue = analogRead(battPin);
+    int battlevel_data = map(battValue, 0, 1023, 0, 100);  // map the value in point of ADC for now
+  
+// Publish data on io.adafruit.com
+    if (! temperature.publish(temperature_data))
+      Serial.println(F("Failed to publish temperature"));
+    else
+      Serial.println(F("Temperature published!"));
+  
+    if (! humidity.publish(humidity_data))
+      Serial.println(F("Failed to publish humidity"));
+    else
+      Serial.println(F("Humidity published!"));
+  
+    if (! heatindex.publish(heatindex_data))
+      Serial.println(F("Failed to publish relative temperature"));
+    else
+      Serial.println(F("Relative temperature published!"));
+      
+    if (! battlevel.publish(battlevel_data))
+      Serial.println(F("Failed to publish battery level"));
+    else
+      Serial.println(F("Battery level published!"));
 
- // Auto battery change for testing the graphic bar
- battValue = (battValue + 200); 
- if (battValue > 1024)
-    battValue = 0;
+// Update OLED values
+    display.clearDisplay();
+    display.setTextColor(WHITE); 
+    display.setTextSize(5);
+    display.setCursor(0,0);
+    display.print(temperature_data);
+  
+    display.drawLine(0, 38, 128, 38, WHITE);
+    display.drawLine(0, 43, 128, 43, WHITE);
+  
+    // Take the battery value and scale it into a graph bar for the OLED. Draw in between of the two lines
+    int battGraph = map(battValue, 0, 1023, 0, 128);  // map the value in point of ADC for now
+    display.drawLine(0, 39, battGraph, 39, WHITE);
+    display.drawLine(0, 40, battGraph, 40, WHITE);
+    display.drawLine(0, 41, battGraph, 41, WHITE);
+    display.drawLine(0, 42, battGraph, 42, WHITE);
     
-  int battlevel_data = map(battValue, 0, 1023, 0, 100);  // map the value in point of ADC for now
+    display.setTextSize(1);
+    display.setCursor(70,0);
+    display.print("Cuisine");
   
-  // Publish data
-  if (! temperature.publish(temperature_data))
-    Serial.println(F("Failed to publish temperature"));
-  else
-    Serial.println(F("Temperature published!"));
-
-  if (! humidity.publish(humidity_data))
-    Serial.println(F("Failed to publish humidity"));
-  else
-    Serial.println(F("Humidity published!"));
-
-  if (! heatindex.publish(heatindex_data))
-    Serial.println(F("Failed to publish relative temperature"));
-  else
-    Serial.println(F("Relative temperature published!"));
-    
-  if (! battlevel.publish(battlevel_data))
-    Serial.println(F("Failed to publish battery level"));
-  else
-    Serial.println(F("Battery level published!"));
+    display.setTextSize(2);
+    display.setCursor(65,20);
+    display.print("Deg-C");
   
-  // Update OLED values
-  display.clearDisplay();
-  display.setTextColor(WHITE); 
-  display.setTextSize(5);
-  display.setCursor(0,0);
-  display.print(temperature_data);
-
-  display.drawLine(0, 38, 128, 38, WHITE);
-  display.drawLine(0, 43, 128, 43, WHITE);
-
-  // Take the battery value and scale it into a graph bar for the OLED. Draw in between of the two lines
-  int battGraph = map(battValue, 0, 1023, 0, 128);  // map the value in point of ADC for now
-  display.drawLine(0, 39, battGraph, 39, WHITE);
-  display.drawLine(0, 40, battGraph, 40, WHITE);
-  display.drawLine(0, 41, battGraph, 41, WHITE);
-  display.drawLine(0, 42, battGraph, 42, WHITE);
+    display.setTextSize(1);
+    display.setCursor(0,56);
+    display.print("Ressentie:");
+    display.setCursor(65,56);
+    display.print(heatindex_data);
+    display.setCursor(80,56);
+    display.print("Deg-C");
+    display.setCursor(0,46);
+    display.print("Humidite:");
+    display.setCursor(65,46);
+    display.print(humidity_data);
+    display.setCursor(80,46);
+    display.print("%");
   
-  display.setTextSize(1);
-  display.setCursor(70,0);
-  display.print("Cuisine");
-
-  display.setTextSize(2);
-  display.setCursor(65,20);
-  display.print("Deg-C");
-
-  display.setTextSize(1);
-  display.setCursor(0,56);
-  display.print("Ressentie:");
-  display.setCursor(65,56);
-  display.print(heatindex_data);
-  display.setCursor(80,56);
-  display.print("Deg-C");
-  display.setCursor(0,46);
-  display.print("Humidite:");
-  display.setCursor(65,46);
-  display.print(humidity_data);
-  display.setCursor(80,46);
-  display.print("%");
-
-  display.display();
+    display.display();
 
   // Repeat every 10 seconds
   delay(10000);
